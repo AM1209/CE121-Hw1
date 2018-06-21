@@ -198,6 +198,7 @@ void export(int fd, char *name, char *dest){
 		write(fd2,buf,(end-pos)%MAX_READ);
 	}
 	else{ 
+		printf("Object not found in Database");
 		return;
 	}
 
