@@ -33,7 +33,6 @@ int main(int argc,char *argv[]){
         switch(action[0]){
             case 'i':
 				input(fd,&action[2]);
-                //input(name);
                 break;
             case 'f':
                 //find(name);
@@ -54,7 +53,7 @@ int main(int argc,char *argv[]){
         printf("Select action (i,f,e,d,q)");
 		fgets(action,MAX_SIZE,stdin);
     }
-	//close(fd);
+
 	if(close(fd)==-1){
 		printf("%d error\n",errno);
 	}
