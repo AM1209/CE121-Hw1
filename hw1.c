@@ -13,6 +13,7 @@
 
 
 void input(int fd, char *path);
+void find(int fd, char *name);
 int exists (int fd, char *name);
 
 int main(int argc,char *argv[]){
@@ -35,6 +36,7 @@ int main(int argc,char *argv[]){
 				input(fd,&action[2]);
                 break;
             case 'f':
+				find(fd,&action[2]);
                 //find(name);
                 break;
             case 'e':
@@ -140,9 +142,28 @@ int exists (int fd, char *name){
 		else{
 			lseek(fd,(off_t) strtol(buf,&ptr,10)+2,SEEK_CUR);
 		}
-		read(fd,buf,MAX_INT);
+		read(fd,buf,MAX_INT); //skip data
 		buf[MAX_INT]='\0';
 		lseek(fd,(off_t) strtol(buf,&ptr,10)+2,SEEK_CUR);
 	}
 	return 0;
+}
+
+void find(int fd,char *name){
+	char buf[MAX_READ],haystack[MAX_READ],*ptr;
+
+	lseek(fd,(off_t) 1,SEEK_SET);
+	while(read(fd,buf,MAX_INT)!=0){
+		buf[MAX_INT]='\0';
+		lseek(fd,(off_t)1,SEEK_CUR);
+		read(fd,haystack,strtol(buf,&ptr,10));
+		haystack[strtol(buf,&ptr,10)]='\0';
+		if(strstr(haystack,name)||(strcmp(name,"*"))==0){
+			printf("%s\n",haystack);
+		}
+		lseek(fd,(off_t)1,SEEK_CUR);		
+		read(fd,buf,MAX_INT); //skip data
+		buf[MAX_INT]='\0';
+		lseek(fd,(off_t) strtol(buf,&ptr,10)+2,SEEK_CUR);
+	}
 }
