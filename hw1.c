@@ -15,14 +15,20 @@
 void input(int fd, char *path);
 void find(int fd, char *name);
 void export(int fd, char *name, char *dest);
+void delete(int fd, int fd2, char *name);
 int exists (int fd, char *name);  //if found returns start of object, if not found returns -1
+int find_end(int fd, char *name, int start);
+void copy(int target, int source, int start, int end);
 
 int main(int argc,char *argv[]){
 
-    int fd;
+    int fd, fd2;
 	char action[MAX_SIZE], *dest, name[MAX_SIZE];
 
     if((fd = open(argv[1],O_RDWR|O_CREAT,0666))==-1){
+        printf("open %d\n",errno);
+    }
+	if((fd2 = open(argv[1],O_RDONLY,0666))==-1){
         printf("open %d\n",errno);
     }
 	//check() for valid db
@@ -46,7 +52,7 @@ int main(int argc,char *argv[]){
 				export(fd, name, dest);
                 break;
             case 'd':
-                //delete(name);
+				delete(fd, fd2, &action[2]);
                 break;
             case 'q':
                 close(fd);
@@ -54,7 +60,7 @@ int main(int argc,char *argv[]){
             default: 
                 printf("Invalid input\n");
             }
-			break;
+		//	break;
         printf("Select action (i,f,e,d,q)");
 		fgets(action,MAX_SIZE,stdin);
     }
@@ -62,6 +68,10 @@ int main(int argc,char *argv[]){
 	if(close(fd)==-1){
 		printf("%d error\n",errno);
 	}
+	if(close(fd2)==-1){
+		printf("%d error\n",errno);
+	}
+
 
     return 0;
 }
@@ -120,6 +130,60 @@ void input(int fd, char *path){
 	close(fd2);
 }
 
+void find(int fd,char *name){
+	char buf[MAX_READ],haystack[MAX_READ],*ptr;
+
+	lseek(fd,(off_t) 1,SEEK_SET);
+	while(read(fd,buf,MAX_INT)!=0){
+		buf[MAX_INT]='\0';
+		lseek(fd,(off_t)1,SEEK_CUR);
+		read(fd,haystack,strtol(buf,&ptr,10));
+		haystack[strtol(buf,&ptr,10)]='\0';
+		if(strstr(haystack,name)||(strcmp(name,"*"))==0){
+			printf("%s\n",haystack);
+		}
+		lseek(fd,(off_t)1,SEEK_CUR);		
+		read(fd,buf,MAX_INT); //skip data
+		buf[MAX_INT]='\0';
+		lseek(fd,(off_t) strtol(buf,&ptr,10)+2,SEEK_CUR);
+	}
+}
+
+void export(int fd, char *name, char *dest){
+
+	int pos, fd2, end;
+	
+	if ((pos=exists(fd,name))==-1){
+		printf("Object not found in Database\n");
+		return;
+	}
+	if((fd2 = open(dest,O_RDWR|O_CREAT|O_EXCL,0666))==-1){
+        printf("Export:File already exists %d\n",errno);
+		return;
+    }
+
+	end=find_end(fd,name,pos);	
+	//write to dest
+	copy(fd2,fd,pos,end);
+}
+
+void delete(int fd, int fd2, char *name){
+
+	int pos;
+
+	if((pos=exists(fd,name))==-1){
+		printf("Object not found in Database\n");
+		return;
+	}
+
+	int start =find_end(fd,name,pos);
+	int end=lseek(fd2,(off_t)0,SEEK_END);
+	lseek(fd,(off_t)pos,SEEK_SET);
+
+	copy(fd,fd2,start,end);
+
+	ftruncate(fd,end-start+pos);
+}
 
 int exists (int fd, char *name){
 
@@ -150,57 +214,23 @@ int exists (int fd, char *name){
 	return -1;
 }
 
-void find(int fd,char *name){
-	char buf[MAX_READ],haystack[MAX_READ],*ptr;
-
-	lseek(fd,(off_t) 1,SEEK_SET);
-	while(read(fd,buf,MAX_INT)!=0){
-		buf[MAX_INT]='\0';
-		lseek(fd,(off_t)1,SEEK_CUR);
-		read(fd,haystack,strtol(buf,&ptr,10));
-		haystack[strtol(buf,&ptr,10)]='\0';
-		if(strstr(haystack,name)||(strcmp(name,"*"))==0){
-			printf("%s\n",haystack);
-		}
-		lseek(fd,(off_t)1,SEEK_CUR);		
-		read(fd,buf,MAX_INT); //skip data
-		buf[MAX_INT]='\0';
-		lseek(fd,(off_t) strtol(buf,&ptr,10)+2,SEEK_CUR);
-	}
+int find_end(int fd, char *name, int start){
+	char buf[MAX_READ], *ptr;
+	
+	lseek(fd,(off_t) start+3+strlen(name)+MAX_INT, SEEK_SET);  //find end
+	read(fd,buf,MAX_INT); //skip data
+	buf[MAX_INT]='\0';
+	return lseek(fd,(off_t) strtol(buf,&ptr,10)+1,SEEK_CUR);
 }
 
-void export(int fd, char *name, char *dest){
+void copy(int target, int source, int start, int end){
+	char buf[MAX_READ];
 
-	int pos, fd2, end;
-	char buf[MAX_READ], *ptr;
-
-	if((fd2 = open(dest,O_RDWR|O_CREAT|O_EXCL,0666))==-1){
-        printf("Export:File already exists %d\n",errno);
-		return;
-    }
-	
-	
-	if ((pos=exists(fd,name))!=-1){
-		//read from input file
-		lseek(fd,(off_t) pos+3+strlen(name)+MAX_INT, SEEK_SET);  //find end
-		read(fd,buf,MAX_INT); //skip data
-		buf[MAX_INT]='\0';
-		end=lseek(fd,(off_t) strtol(buf,&ptr,10)+1,SEEK_CUR);
-
-
-		//write to dest
-		lseek(fd,(off_t) pos, SEEK_SET);
-		for(int i=0;i<(end-pos)/MAX_READ;i++){  //get object
-			read(fd,buf,MAX_READ);
-			write(fd2,buf,MAX_READ);
-		}
-		read(fd,buf,(end-pos)%MAX_READ);
-		write(fd2,buf,(end-pos)%MAX_READ);
+	lseek(source,(off_t) start, SEEK_SET);
+	for(int i=0;i<(end-start)/MAX_READ;i++){  //get object
+		read(source,buf,MAX_READ);
+		write(target,buf,MAX_READ);
 	}
-	else{ 
-		printf("Object not found in Database");
-		return;
-	}
-
-
+	read(source,buf,(end-start)%MAX_READ);
+	write(target,buf,(end-start)%MAX_READ);
 }
