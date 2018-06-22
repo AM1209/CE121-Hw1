@@ -22,7 +22,7 @@ void copy(int target, int source, int start, int end);
 int main(int argc,char *argv[]){
 
     int fd;
-	char action[MAX_READ]/*, *dest, name[MAX_READ]*/;
+	char action[MAX_READ], *dest, name[MAX_READ];
 
     if((fd = open(argv[1],O_RDWR|O_CREAT,0666))==-1){
         printf("open %d\n",errno);
@@ -44,20 +44,20 @@ int main(int argc,char *argv[]){
 					input(fd,&action[2]);
 					break;
 				case 'f':
-				//	find(fd,&action[2]);
+					find(fd,&action[2]);
 					break;
 				case 'e':
-				/*	if(strchr(&action[2],' ')==NULL){
+					if(strchr(&action[2],' ')==NULL){
 						printf("Invalid input\n");
 						break;
 					}
 					dest=strchr(&action[2],' ')+sizeof(char); //dest from empty+1 to end
 					strncpy(name,&action[2],strlen(&action[2])-strlen(dest));
 					name[strlen(&action[2])-strlen(dest)-1]='\0';
-					export(fd, name, dest);*/
+					export(fd, name, dest);
 					break;
 				case 'd':
-					//delete(fd, argv[1], &action[2]);
+					delete(fd, argv[1], &action[2]);
 					break;
 				case 'q':
 					close(fd);
@@ -81,19 +81,14 @@ int main(int argc,char *argv[]){
 
 void input(int fd, char *path){
 
-	int fd2,bytes,size=0;
+	int fd2,bytes,temp,size=0;
 	char buf[MAX_READ];
-	char int_str[MAX_READ], name_size_str[MAX_READ];
 	char *name;
 
 	if ((fd2=open(path,O_RDONLY))==-1){
 		printf("Error %d when opening fd2\n",errno);
 		return;
 	}
-
-	char format_size[20]; //format_size of data size
-	sprintf(format_size,"<%%0%dd>",MAX_INT);
-
 
 	name=strrchr(path,'/'); //from path to name
 	if(name==NULL){
@@ -106,17 +101,17 @@ void input(int fd, char *path){
 		return;
 	}
 	
-	lseek(fd,(off_t) 0,SEEK_END); //put cursor on EOF if db already exists
+	lseek(fd,(off_t) 0,SEEK_END); //put cursor on EOF
 
 	//input name size
-	sprintf(name_size_str,format_size,strlen(name));
-	write(fd,name_size_str,strlen(name_size_str));
+	temp=strlen(name);
+	write(fd,&temp,sizeof(int));
 	//input name
 	write(fd,name,strlen(name));
 
-	//place size placeholder
-	sprintf(int_str,format_size,0);
-	write(fd,int_str,strlen(int_str));
+	//data size placeholder
+	temp=0;
+	write(fd,&temp,sizeof(int));
 
 	//Write data
 	while((bytes=read(fd2,buf,MAX_READ))>0){
@@ -125,29 +120,25 @@ void input(int fd, char *path){
 	}
 
 	//overwrite placeholder to correct size of data
-	lseek(fd,(off_t)-(size+MAX_INT+2),SEEK_CUR); //find placeholder before data (+2 for brackets)
-	sprintf(int_str,format_size,size);
-	write(fd,int_str,strlen(int_str));
+	lseek(fd,(off_t)-(size+sizeof(int)),SEEK_CUR); //find placeholder before data
+	write(fd,&size,sizeof(int));
 	
 	close(fd2);
 }
 
-/*void find(int fd,char *name){
-	char buf[MAX_READ],haystack[MAX_READ],*ptr;
+void find(int fd,char *name){
+	char buf[MAX_READ];
+	int temp;
 
-	lseek(fd,(off_t) 1,SEEK_SET);
-	while(read(fd,buf,MAX_INT)!=0){
-		buf[MAX_INT]='\0';
-		lseek(fd,(off_t)1,SEEK_CUR);
-		read(fd,haystack,strtol(buf,&ptr,10));
-		haystack[strtol(buf,&ptr,10)]='\0';
-		if(strstr(haystack,name)||(strcmp(name,"*"))==0){
-			printf("%s\n",haystack);
+	lseek(fd,(off_t) 0,SEEK_SET);
+	while(read(fd,&temp,sizeof(int))!=0){
+		read(fd,buf,temp);
+		buf[temp]='\0';
+		if(strstr(buf,name)||(strcmp(name,"*"))==0){
+			printf("%s\n",buf);
 		}
-		lseek(fd,(off_t)1,SEEK_CUR);		
-		read(fd,buf,MAX_INT); //skip data
-		buf[MAX_INT]='\0';
-		lseek(fd,(off_t) strtol(buf,&ptr,10)+2,SEEK_CUR);
+		read(fd,&temp,sizeof(int)); //skip data
+		lseek(fd,(off_t) temp,SEEK_CUR);
 	}
 }
 
@@ -193,54 +184,47 @@ void delete(int fd, char *path, char *name){
 	if(close(fd2)==-1){
 		printf("%d error\n",errno);
 	}
-}*/
+}
 
 int exists (int fd, char *name){
 
 	char buf[MAX_READ];
-	char *ptr;
+	int temp;
 
-	lseek(fd,(off_t) 1,SEEK_SET);
-	while(read(fd,buf,MAX_INT)!=0){
-		buf[MAX_INT]='\0';
-		if(strlen(name)==strtol(buf,&ptr,10)){  //if same size
-			lseek(fd,(off_t)1,SEEK_CUR);
+	lseek(fd,(off_t)0,SEEK_SET);
+	while(read(fd,&temp,sizeof(int))!=0){
+		if(strlen(name)==temp){  //if same size
 			read(fd,buf,strlen(name)); 
 			buf[strlen(name)]='\0';
 			if(strcmp(name,buf)==0){  //if same name
-				return lseek(fd,(off_t)-strlen(name)-MAX_INT-2,SEEK_CUR);;
-			}
-			else{
-				lseek(fd,(off_t)1,SEEK_CUR);
+				return lseek(fd,(off_t)-strlen(name)-sizeof(int),SEEK_CUR);;
 			}
 		}
 		else{
-			lseek(fd,(off_t) strtol(buf,&ptr,10)+2,SEEK_CUR);
+			lseek(fd,(off_t) temp,SEEK_CUR);
 		}
-		read(fd,buf,MAX_INT); //skip data
-		buf[MAX_INT]='\0';
-		lseek(fd,(off_t) strtol(buf,&ptr,10)+2,SEEK_CUR);
+		read(fd,&temp,sizeof(int)); //skip data
+		lseek(fd,(off_t) temp,SEEK_CUR);
 	}
 	return -1;
 }
 
-/*int find_end(int fd, char *name, int start){
-	char buf[MAX_READ], *ptr;
-	
-	lseek(fd,(off_t) start+3+strlen(name)+MAX_INT, SEEK_SET);  //find end
-	read(fd,buf,MAX_INT); //skip data
-	buf[MAX_INT]='\0';
-	return lseek(fd,(off_t) strtol(buf,&ptr,10)+1,SEEK_CUR);
+int find_end(int fd, char *name, int start){
+	int temp;
+
+	lseek(fd,(off_t) start+sizeof(int)+strlen(name), SEEK_SET);  //find end
+	read(fd,&temp,sizeof(int)); //skip data
+	return lseek(fd,(off_t) temp,SEEK_CUR);
 }
 
 void copy(int target, int source, int start, int end){
 	char buf[MAX_READ];
 
 	lseek(source,(off_t) start, SEEK_SET);
-	for(int i=0;i<(end-start)/MAX_READ;i++){  //get object
+	for(int i=0;i<(end-start)/MAX_READ;i++){
 		read(source,buf,MAX_READ);
 		write(target,buf,MAX_READ);
 	}
 	read(source,buf,(end-start)%MAX_READ);
 	write(target,buf,(end-start)%MAX_READ);
-}*/
+}
