@@ -22,7 +22,7 @@ void copy(int target, int source, int start, int end);
 int main(int argc,char *argv[]){
 
     int fd;
-	char action[MAX_READ], *dest, name[MAX_READ];
+	char action[MAX_READ]/*, *dest, name[MAX_READ]*/;
 
     if((fd = open(argv[1],O_RDWR|O_CREAT,0666))==-1){
         printf("open %d\n",errno);
@@ -44,20 +44,20 @@ int main(int argc,char *argv[]){
 					input(fd,&action[2]);
 					break;
 				case 'f':
-					find(fd,&action[2]);
+				//	find(fd,&action[2]);
 					break;
 				case 'e':
-					if(strchr(&action[2],' ')==NULL){
+				/*	if(strchr(&action[2],' ')==NULL){
 						printf("Invalid input\n");
 						break;
 					}
 					dest=strchr(&action[2],' ')+sizeof(char); //dest from empty+1 to end
 					strncpy(name,&action[2],strlen(&action[2])-strlen(dest));
 					name[strlen(&action[2])-strlen(dest)-1]='\0';
-					export(fd, name, dest);
+					export(fd, name, dest);*/
 					break;
 				case 'd':
-					delete(fd, argv[1], &action[2]);
+					//delete(fd, argv[1], &action[2]);
 					break;
 				case 'q':
 					close(fd);
@@ -132,7 +132,7 @@ void input(int fd, char *path){
 	close(fd2);
 }
 
-void find(int fd,char *name){
+/*void find(int fd,char *name){
 	char buf[MAX_READ],haystack[MAX_READ],*ptr;
 
 	lseek(fd,(off_t) 1,SEEK_SET);
@@ -193,7 +193,7 @@ void delete(int fd, char *path, char *name){
 	if(close(fd2)==-1){
 		printf("%d error\n",errno);
 	}
-}
+}*/
 
 int exists (int fd, char *name){
 
@@ -224,7 +224,7 @@ int exists (int fd, char *name){
 	return -1;
 }
 
-int find_end(int fd, char *name, int start){
+/*int find_end(int fd, char *name, int start){
 	char buf[MAX_READ], *ptr;
 	
 	lseek(fd,(off_t) start+3+strlen(name)+MAX_INT, SEEK_SET);  //find end
@@ -243,4 +243,4 @@ void copy(int target, int source, int start, int end){
 	}
 	read(source,buf,(end-start)%MAX_READ);
 	write(target,buf,(end-start)%MAX_READ);
-}
+}*/
