@@ -7,7 +7,6 @@
 #include<sys/types.h>
 #include<sys/stat.h>
 
-#define MAX_SIZE 20
 #define MAX_READ 512
 #define MAX_INT 5
 
@@ -15,63 +14,66 @@
 void input(int fd, char *path);
 void find(int fd, char *name);
 void export(int fd, char *name, char *dest);
-void delete(int fd, int fd2, char *name);
+void delete(int fd, char *path, char *name);
 int exists (int fd, char *name);  //if found returns start of object, if not found returns -1
 int find_end(int fd, char *name, int start);
 void copy(int target, int source, int start, int end);
 
 int main(int argc,char *argv[]){
 
-    int fd, fd2;
-	char action[MAX_SIZE], *dest, name[MAX_SIZE];
+    int fd;
+	char action[MAX_READ], *dest, name[MAX_READ];
 
     if((fd = open(argv[1],O_RDWR|O_CREAT,0666))==-1){
         printf("open %d\n",errno);
     }
-	if((fd2 = open(argv[1],O_RDONLY,0666))==-1){
-        printf("open %d\n",errno);
-    }
+
 	//check() for valid db
     
 	//menu
     printf("Select action (i,f,e,d,q)");
-	fgets(action,MAX_SIZE,stdin);
+	fgets(action,MAX_READ,stdin);
     while(action[0]!='q'){
 		action[strcspn(action,"\n")]='\0';  //remove \n from end of fgets() input
-        switch(action[0]){
-            case 'i':
-				input(fd,&action[2]);
-                break;
-            case 'f':
-				find(fd,&action[2]);
-                break;
-            case 'e':
-				dest=strchr(&action[2],' ')+sizeof(char); //dest from empty+1 to end
-				strncpy(name,&action[2],strlen(&action[2])-strlen(dest));
-				name[strlen(&action[2])-strlen(dest)-1]='\0';
-				export(fd, name, dest);
-                break;
-            case 'd':
-				delete(fd, fd2, &action[2]);
-                break;
-            case 'q':
-                close(fd);
-                break;
-            default: 
-                printf("Invalid input\n");
-            }
+		if(action[1]!=' '){
+			printf("Invalid input\n");
+		}
+		else{
+			switch(action[0]){
+				case 'i':
+					input(fd,&action[2]);
+					break;
+				case 'f':
+					find(fd,&action[2]);
+					break;
+				case 'e':
+					if(strchr(&action[2],' ')==NULL){
+						printf("Invalid input\n");
+						break;
+					}
+					dest=strchr(&action[2],' ')+sizeof(char); //dest from empty+1 to end
+					strncpy(name,&action[2],strlen(&action[2])-strlen(dest));
+					name[strlen(&action[2])-strlen(dest)-1]='\0';
+					export(fd, name, dest);
+					break;
+				case 'd':
+					delete(fd, argv[1], &action[2]);
+					break;
+				case 'q':
+					close(fd);
+					break;
+				default: 
+					printf("Invalid input\n");
+				}
+		}
 		//	break;
         printf("Select action (i,f,e,d,q)");
-		fgets(action,MAX_SIZE,stdin);
+		fgets(action,MAX_READ,stdin);
     }
 
 	if(close(fd)==-1){
 		printf("%d error\n",errno);
 	}
-	if(close(fd2)==-1){
-		printf("%d error\n",errno);
-	}
-
 
     return 0;
 }
@@ -167,9 +169,13 @@ void export(int fd, char *name, char *dest){
 	copy(fd2,fd,pos,end);
 }
 
-void delete(int fd, int fd2, char *name){
+void delete(int fd, char *path, char *name){
 
-	int pos;
+	int fd2,pos;
+
+	if((fd2 = open(path,O_RDONLY,0666))==-1){
+        printf("open %d\n",errno);
+    }
 
 	if((pos=exists(fd,name))==-1){
 		printf("Object not found in Database\n");
@@ -183,6 +189,10 @@ void delete(int fd, int fd2, char *name){
 	copy(fd,fd2,start,end);
 
 	ftruncate(fd,end-start+pos);
+
+	if(close(fd2)==-1){
+		printf("%d error\n",errno);
+	}
 }
 
 int exists (int fd, char *name){
