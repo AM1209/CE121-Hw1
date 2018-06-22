@@ -8,7 +8,6 @@
 #include<sys/stat.h>
 
 #define MAX_READ 512
-#define MAX_INT 5
 
 
 void input(int fd, char *path);
@@ -66,7 +65,7 @@ int main(int argc,char *argv[]){
 					printf("Invalid input\n");
 				}
 		}
-		//	break;
+		
         printf("Select action (i,f,e,d,q)");
 		fgets(action,MAX_READ,stdin);
     }
