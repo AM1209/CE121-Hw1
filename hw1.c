@@ -9,10 +9,9 @@
 
 #define MAX_READ 512
 
-
 void input(int fd, char *path);
 void find(int fd, char *name);
-void export(int fd, char *name, char *dest);
+void export(int fd, char *command);
 void delete(int fd, char *path, char *name);
 int exists (int fd, char *name);  //if found returns start of object, if not found returns -1
 int find_end(int fd, char *name, int start);
@@ -21,7 +20,7 @@ void copy(int target, int source, int start, int end);
 int main(int argc,char *argv[]){
 
     int fd;
-	char action[MAX_READ], *dest, name[MAX_READ];
+	char action[MAX_READ];
 
     if((fd = open(argv[1],O_RDWR|O_CREAT,0666))==-1){
         printf("open %d\n",errno);
@@ -31,9 +30,11 @@ int main(int argc,char *argv[]){
     
 	//menu
     printf("Select action (i,f,e,d,q)");
-	fgets(action,MAX_READ,stdin);
-    while(action[0]!='q'){
-		action[strcspn(action,"\n")]='\0';  //remove \n from end of fgets() input
+
+    while(fgets(action,MAX_READ,stdin)[0]!='q'){
+
+		action[strcspn(action,"\n")]='\0';
+		
 		if(action[1]!=' '){
 			printf("Invalid input\n");
 		}
@@ -50,10 +51,7 @@ int main(int argc,char *argv[]){
 						printf("Invalid input\n");
 						break;
 					}
-					dest=strchr(&action[2],' ')+sizeof(char); //dest from empty+1 to end
-					strncpy(name,&action[2],strlen(&action[2])-strlen(dest));
-					name[strlen(&action[2])-strlen(dest)-1]='\0';
-					export(fd, name, dest);
+					export (fd,&action[2]);
 					break;
 				case 'd':
 					delete(fd, argv[1], &action[2]);
@@ -67,7 +65,6 @@ int main(int argc,char *argv[]){
 		}
 		
         printf("Select action (i,f,e,d,q)");
-		fgets(action,MAX_READ,stdin);
     }
 
 	if(close(fd)==-1){
@@ -89,9 +86,11 @@ void input(int fd, char *path){
 		return;
 	}
 
-	name=strrchr(path,'/'); //from path to name
-	if(name==NULL){
+	if(strrchr(path,'/')==NULL){
 		name=path;
+	}
+	else{
+		name=strrchr(path,'/')+sizeof(char);
 	}
 
 	//check if name already exists in db
@@ -141,9 +140,13 @@ void find(int fd,char *name){
 	}
 }
 
-void export(int fd, char *name, char *dest){
-
+void export(int fd, char *command){
 	int pos, fd2, end;
+	char name[MAX_READ], *dest;
+
+	dest=strchr(command,' ')+sizeof(char); //dest from empty+1 to end
+	strncpy(name,command,strlen(command)-strlen(dest));
+	name[strlen(command)-strlen(dest)-1]='\0';
 	
 	if ((pos=exists(fd,name))==-1){
 		printf("Object not found in Database\n");
