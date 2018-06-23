@@ -22,6 +22,11 @@ int main(int argc,char *argv[]){
     int fd;
 	char action[MAX_READ];
 
+	if (argv[1]==NULL){
+		printf("Error Invalid input\n");
+		return 0;
+	}
+
     if((fd = open(argv[1],O_RDWR|O_CREAT,0666))==-1){
         printf("open %d\n",errno);
     }
@@ -114,8 +119,9 @@ void input(int fd, char *path){
 	lseek(fd,(off_t)-(size+sizeof(int)),SEEK_CUR); //find placeholder before data
 	write(fd,&size,sizeof(int));  //overwrite placeholder to correct size of data
 	
-	close(fd2);
-}
+	if(close(fd2)==-1){
+		printf("%d error\n",errno);
+	}}
 
 void find(int fd,char *name){
 	char buf[MAX_READ];
@@ -152,6 +158,10 @@ void export(int fd, char *command){
 
 	end=find_end(fd,name,pos);	
 	copy(fd2,fd,lseek(fd,(off_t)pos+2*sizeof(int)+strlen(name),SEEK_SET),end); //write to dest
+	
+	if(close(fd2)==-1){
+		printf("%d error\n",errno);
+	}
 }
 
 void delete(int fd, char *path, char *name){
