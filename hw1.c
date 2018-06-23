@@ -28,7 +28,6 @@ int main(int argc,char *argv[]){
 
 	//check() for valid db
     
-	//menu
     printf("Select action (i,f,e,d,q)");
 
     while(fgets(action,MAX_READ,stdin)[0]!='q'){
@@ -37,31 +36,32 @@ int main(int argc,char *argv[]){
 		
 		if(action[1]!=' '){
 			printf("Invalid input\n");
+			printf("Select action (i,f,e,d,q)");
+			continue;
 		}
-		else{
-			switch(action[0]){
-				case 'i':
-					input(fd,&action[2]);
-					break;
-				case 'f':
-					find(fd,&action[2]);
-					break;
-				case 'e':
-					if(strchr(&action[2],' ')==NULL){
-						printf("Invalid input\n");
-						break;
-					}
-					export (fd,&action[2]);
-					break;
-				case 'd':
-					delete(fd, argv[1], &action[2]);
-					break;
-				case 'q':
-					close(fd);
-					break;
-				default: 
+		
+		switch(action[0]){
+			case 'i':
+				input(fd,&action[2]);
+				break;
+			case 'f':
+				find(fd,&action[2]);
+				break;
+			case 'e':
+				if(strchr(&action[2],' ')==NULL){
 					printf("Invalid input\n");
+					break;
 				}
+				export (fd,&action[2]);
+				break;
+			case 'd':
+				delete(fd, argv[1], &action[2]);
+				break;
+			case 'q':
+				close(fd);
+				break;
+			default: 
+				printf("Invalid input\n");
 		}
 		
         printf("Select action (i,f,e,d,q)");
@@ -100,15 +100,9 @@ void input(int fd, char *path){
 	}
 	
 	lseek(fd,(off_t) 0,SEEK_END); //put cursor on EOF
-
-	//input name size
-	temp=strlen(name);
+	temp=strlen(name); //input name size
 	write(fd,&temp,sizeof(int));
-	//input name
-	write(fd,name,strlen(name));
-
-	//data size placeholder
-	temp=0;
+	write(fd,name,strlen(name));  //input name
 	write(fd,&temp,sizeof(int));
 
 	//Write data
@@ -117,9 +111,8 @@ void input(int fd, char *path){
 		size+=bytes;
 	}
 
-	//overwrite placeholder to correct size of data
 	lseek(fd,(off_t)-(size+sizeof(int)),SEEK_CUR); //find placeholder before data
-	write(fd,&size,sizeof(int));
+	write(fd,&size,sizeof(int));  //overwrite placeholder to correct size of data
 	
 	close(fd2);
 }
@@ -152,19 +145,19 @@ void export(int fd, char *command){
 		printf("Object not found in Database\n");
 		return;
 	}
-	if((fd2 = open(dest,O_RDWR|O_CREAT|O_EXCL,0666))==-1){
+	if((fd2 = open(dest,O_RDWR|O_CREAT|O_EXCL,0777))==-1){
         printf("Export:File already exists %d\n",errno);
 		return;
     }
 
 	end=find_end(fd,name,pos);	
-	//write to dest
-	copy(fd2,fd,pos,end);
+	copy(fd2,fd,lseek(fd,(off_t)pos+2*sizeof(int)+strlen(name),SEEK_SET),end); //write to dest
 }
 
 void delete(int fd, char *path, char *name){
 
-	int fd2,pos;
+	int fd2, pos;
+	int start, end;
 
 	if((fd2 = open(path,O_RDONLY,0666))==-1){
         printf("open %d\n",errno);
@@ -175,13 +168,11 @@ void delete(int fd, char *path, char *name){
 		return;
 	}
 
-	int start =find_end(fd,name,pos);
-	int end=lseek(fd2,(off_t)0,SEEK_END);
+	start =find_end(fd,name,pos);
+	end=lseek(fd2,(off_t)0,SEEK_END);
 	lseek(fd,(off_t)pos,SEEK_SET);
-
-	copy(fd,fd2,start,end);
-
-	ftruncate(fd,end-start+pos);
+	copy(fd,fd2,start,end);  //transfer data over those to delete
+	ftruncate(fd,end-start+pos);  //reduce file size
 
 	if(close(fd2)==-1){
 		printf("%d error\n",errno);
