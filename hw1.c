@@ -2,13 +2,13 @@
  *06/05/2020
  */
 
-#include<stdio.h>
+#include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
-#include<string.h>
-#include<stdlib.h>
+#include <string.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 #define MAX_ARGS 3
@@ -37,6 +37,7 @@ int main(int argc, char *argv[]){
 
     if(argc!=2){
         printf("Invalid number of arguments\n");
+        printf("Please enter the name of the database file\n");
         return 1;
     }
 
