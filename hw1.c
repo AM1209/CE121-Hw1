@@ -17,9 +17,9 @@
 #define FILENAMELEN 1
 #define MAXFILESIZE 8
 
-#define CHECK(sinartisi, mnm_lathous)\
-    if(sinartisi == -1){\
-        printf mnm_lathous;\
+#define CHECK(sinartisi)\
+    if((sinartisi) == -1){\
+        fprintf(stderr,"errno: %d at line: %d\n", errno, __LINE__);\
         return -1;\
     }\
 
@@ -41,18 +41,22 @@ int main(int argc, char *argv[]){
         return 1;
     }
 
-    CHECK((fd=open(argv[1], O_RDWR|O_CREAT, S_IRWXU)),
-        ("Error opening file %d\n", errno));
+    CHECK(fd=open(argv[1], O_RDWR|O_CREAT, S_IRWXU));
 
     while(fgets(user_input, MAX_STR-1, stdin)){
         
         user_input[strcspn(user_input,"\n")]='\0';
-        if(!(numOfArg=mystrtok(user_input, ' ', tokenized_input, MAX_ARGS))){
+        numOfArg=mystrtok(user_input, ' ', tokenized_input, MAX_ARGS);
+        if(numOfArg<=0){
             printf("Invalid number of arguments! Try again!\n");
             continue;
         }
 
         if(numOfArg==2 && !strcmp("i",tokenized_input[0])){
+            if(!strcmp(argv[1], tokenized_input[1])){
+                printf("Cant import the database file to the database\n");
+                continue;
+            }
             printf("Import %s\n", tokenized_input[1]);
             if(import(fd,tokenized_input[1]))
                 printf("Import failed\n");
@@ -88,7 +92,9 @@ int main(int argc, char *argv[]){
     for(int i=0; i<numOfArg; i++){
         free(tokenized_input[i]);
     }
-    close(fd);
+
+    CHECK(close(fd))
+
     return 1;
 }
 
@@ -105,8 +111,12 @@ static int mystrtok(const char *str, char delim, char *tokenizedStr[], int array
         if(*str=='\0')  //reached end of string return number of tokens
             return i;
     
-        if(i == arraySize)  //reached Array limits, string not fully tokenized, return failure
+        if(i == arraySize){  //reached Array limits, string not fully tokenized, return failure
+            for (int j=0;j< arraySize; j++){
+                free(tokenizedStr[j]);
+            }
             return -1;
+        }
 
         while(*str==delim) //discard delim characters
             str++; 
@@ -116,6 +126,13 @@ static int mystrtok(const char *str, char delim, char *tokenizedStr[], int array
             len++;
 
         tokenizedStr[i] = (char *)malloc(len+1);  //malloc memory for new string
+        if(!tokenizedStr[i]){
+            for (int j=0;j< i; j++){
+                free(tokenizedStr[j]);
+            }
+            fprintf(stderr,"Malloc failed\n");
+            return -1;
+        }
         strncpy(tokenizedStr[i], str, len);
         tokenizedStr[i][len]='\0';
 
@@ -128,29 +145,23 @@ static int search(int fd, const char *fileToFind){
     unsigned char buf[MAX_READ];
     ssize_t readBytes=0, fileSize=0, offset=0;
 
-    CHECK(lseek(fd, 0, SEEK_SET),
-        ("error seeking file\n"));
+    CHECK(lseek(fd, 0, SEEK_SET));
 
     while((readBytes=read(fd, buf, FILENAMELEN))){  //diabazei mikos onomatos
 
-        CHECK(readBytes,  //elegxei an epestrepse lathos
-            ("error reading file\n"));
+        CHECK(readBytes);//elegxei an epestrepse lathos
 
-        CHECK((readBytes = read(fd, buf, (size_t)*buf)),  //Diabazei to onoma
-            ("error reading file\n"));
+        CHECK(readBytes = read(fd, buf, (size_t)*buf));  //Diabazei to onoma
         buf[readBytes]='\0';
 
         if(!strcmp((char *)buf, fileToFind)){  //elegxei an exoun paromoio onoma
-            CHECK((offset = lseek(fd, -(strlen(fileToFind)+FILENAMELEN), SEEK_CUR)),  //Telos arxeiou
-                ("error seeking file\n"));
+            CHECK(offset = lseek(fd, -(strlen(fileToFind)+FILENAMELEN), SEEK_CUR));  //Telos arxeiou
             return offset;
         }
 
-        CHECK(read(fd, &fileSize, MAXFILESIZE),  //Diabazei to megethos tou arxeiou
-            ("error reading file\n"));
+        CHECK(read(fd, &fileSize, MAXFILESIZE));  //Diabazei to megethos tou arxeiou
 
-        CHECK(lseek(fd, fileSize, SEEK_CUR),  //Telos arxeiou
-            ("error seeking file\n"));   
+        CHECK(lseek(fd, fileSize, SEEK_CUR));  //Telos arxeiou
     }
     return -1;
 }
@@ -162,8 +173,7 @@ int import(int fd, const char *importFile){
     size_t strlenToWrite;
     unsigned char buf[MAX_READ];
 
-    CHECK((fdInputFile=open(importFile, O_RDONLY)),
-        ("Error file %d\n", errno));
+    CHECK(fdInputFile=open(importFile, O_RDONLY));
 
     if(!(importFileName = strrchr(importFile,'/'))){
         importFileName = importFile;
@@ -177,36 +187,28 @@ int import(int fd, const char *importFile){
         return 1;
     }
 
-    CHECK(lseek(fd, 0, SEEK_END),
-        ("error seeking file\n"));
+    CHECK(lseek(fd, 0, SEEK_END));  //Write to end of the file
 
-    strlenToWrite = strlen(importFileName);
-    CHECK(write(fd, &strlenToWrite, FILENAMELEN),
-        ("error writing file\n"));
+    strlenToWrite = strlen(importFileName);  //First write the length of the file's name
+    CHECK(write(fd, &strlenToWrite, FILENAMELEN));
   
-    CHECK(write(fd, importFileName, strlen(importFileName)),
-        ("error writing file\n"));
+    CHECK(write(fd, importFileName, strlen(importFileName)));  //then write the name of the file
 
-    CHECK(write(fd, "", MAXFILESIZE),
-        ("error writing file\n"));
+    CHECK(write(fd, "", MAXFILESIZE));  //put a placeholder for the size of the file
+                                        //same thing could be done with stat command
 
     totalBytes = 0;
-    while((readBytes = read(fdInputFile, buf, MAX_READ))){
-        CHECK(readBytes,
-            ("error reading file\n"));
-        CHECK(write(fd, buf, readBytes),
-            ("error writing file\n"));
+    while((readBytes = read(fdInputFile, buf, MAX_READ))){  //write all bytes of the file to the bd
+        CHECK(readBytes);
+        CHECK(write(fd, buf, readBytes));
         totalBytes+=readBytes;
     }
 
-    CHECK(lseek(fd, -(totalBytes+MAXFILESIZE), SEEK_CUR),
-        ("error seeking file\n"));
+    CHECK(lseek(fd, -(totalBytes+MAXFILESIZE), SEEK_CUR));  //go back to placeholder
 
-    CHECK(write(fd, &totalBytes, MAXFILESIZE),
-        ("error writing file\n"));
+    CHECK(write(fd, &totalBytes, MAXFILESIZE));  //and write the actual file size
 
-    CHECK(close(fdInputFile),
-        ("error closing file\n"));
+    CHECK(close(fdInputFile));
 
     return 0;
 }
@@ -216,16 +218,14 @@ int find(int fd, const char *fileToFind){
     ssize_t readBytes=0, fileSize=0;
     int found = 0;
 
-    CHECK(lseek(fd, 0, SEEK_SET),
-        ("error seeking file\n"));
+    CHECK(lseek(fd, 0, SEEK_SET));
 
     while((readBytes=read(fd, buf, FILENAMELEN))){  //diabazei mikos onomatos
 
-        CHECK(readBytes,  //elegxei an epestrepse lathos
-            ("error reading file\n"));
+        CHECK(readBytes);  //elegxei an epestrepse lathos
 
-        CHECK((readBytes = read(fd, buf, (size_t)*buf)),  //Diabazei to onoma
-            ("error reading file\n"));
+        CHECK(readBytes = read(fd, buf, (size_t)*buf));  //Diabazei to onoma
+
         buf[readBytes]='\0';
 
         if(strstr((char *)buf,fileToFind) || !strcmp("*",fileToFind)){  //elegxei an exoun paromoio onoma
@@ -233,11 +233,10 @@ int find(int fd, const char *fileToFind){
             found++;
         }
 
-        CHECK(read(fd, &fileSize, MAXFILESIZE),  //Diabazei to megethos tou arxeiou
-            ("error reading file\n"));
+        CHECK(read(fd, &fileSize, MAXFILESIZE));  //Diabazei to megethos tou arxeiou
 
-        CHECK(lseek(fd, fileSize, SEEK_CUR),  //Telos arxeiou
-            ("error seeking file\n"));   
+        CHECK(lseek(fd, fileSize, SEEK_CUR));  //Telos arxeiou
+  
     }
     return found;
 }
@@ -251,24 +250,19 @@ int export(int fd, const char *src, const char *dest){
         return -1;
     }
 
-    CHECK((fd_dst=open(dest, O_RDWR|O_CREAT|O_EXCL, S_IRWXU)),
-        ("Error file %d\n", errno));
+    CHECK(fd_dst=open(dest, O_RDWR|O_CREAT|O_EXCL, S_IRWXU));
 
-    CHECK(lseek(fd, offset+FILENAMELEN+strlen(src), SEEK_SET),  //Arxh data
-            ("error seeking file\n"));
+    CHECK(lseek(fd, offset+FILENAMELEN+strlen(src), SEEK_SET));  //Arxh data
 
-    CHECK(read(fd, &fileSize, MAXFILESIZE),  //Diabazei to megethos tou arxeiou
-        ("error reading file\n"));
+    CHECK(read(fd, &fileSize, MAXFILESIZE)); //Diabazei to megethos tou arxeiou
 
     while(fileSize){
-        CHECK((readBytes= read(fd, buf, fileSize < MAX_READ-1 ? fileSize : MAX_READ-1)),
-            ("error reading file\n"));
-        CHECK(write(fd_dst, buf, readBytes),
-            ("error writing  file\n"));
+        CHECK((readBytes= read(fd, buf, fileSize < MAX_READ-1 ? fileSize : MAX_READ-1)));
+        CHECK(write(fd_dst, buf, readBytes));
         fileSize -= readBytes;
     }
 
-    close(fd_dst);
+    CHECK(close(fd_dst))
 
     return 0;
 }
@@ -283,44 +277,33 @@ int delete(int fd, const char *name, const char *file){
         return -1;
     }
 
-    CHECK(lseek(fd, offset, SEEK_SET),
-        ("Error seek file %d\n", errno));
+    CHECK(lseek(fd, offset, SEEK_SET));
 
     //find entry's end
-    CHECK((fd_2 = open(file, O_RDWR)),
-        ("Error opening file %d\n", errno));
+    CHECK((fd_2 = open(file, O_RDWR)));
 
-    CHECK(lseek(fd_2, offset,SEEK_SET),
-        ("Error seek file %d\n", errno));
+    CHECK(lseek(fd_2, offset,SEEK_SET));
 
-    CHECK((readBytes=read(fd_2, buf, FILENAMELEN)),
-        ("Error reading file %d\n", errno));
+    CHECK((readBytes=read(fd_2, buf, FILENAMELEN)));
 
-    CHECK((readBytes = read(fd_2, buf, (size_t)*buf)),  //Diabazei to onoma
-        ("error reading file\n"));
+    CHECK((readBytes = read(fd_2, buf, (size_t)*buf)));  //Diabazei to onoma
 
-    CHECK(read(fd_2, &fileSize, MAXFILESIZE),  //Diabazei to megethos tou arxeiou
-        ("error reading file\n"));
+    CHECK(read(fd_2, &fileSize, MAXFILESIZE));  //Diabazei to megethos tou arxeiou
 
-    CHECK(lseek(fd_2, fileSize, SEEK_CUR),  //Telos arxeiou
-        ("error seeking file\n"));
+    CHECK(lseek(fd_2, fileSize, SEEK_CUR));  //Telos arxeiou
 
     //overwrite start from end until end reaches EOF
     while((readBytes = read(fd_2,buf, MAX_READ-1))){
-        CHECK(readBytes,
-            ("error reading file\n"));
-        CHECK(write(fd, buf, readBytes),
-            ("error writing  file\n"));
+        CHECK(readBytes);
+        CHECK(write(fd, buf, readBytes));
     }
 
     //truncate
-    CHECK((readBytes = lseek(fd, 0, SEEK_CUR)),  //Neo EOF ths DB
-        ("error seeking file\n"));
+    CHECK(readBytes = lseek(fd, 0, SEEK_CUR));  //Neo EOF ths DB
 
-    CHECK(ftruncate(fd_2,readBytes),
-        ("error truncating file %d\n",errno));
+    CHECK(ftruncate(fd_2,readBytes));
 
-    close(fd_2);
+    CHECK(close(fd_2))
 
     return 0;
 }
