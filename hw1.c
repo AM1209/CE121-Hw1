@@ -99,7 +99,6 @@ int main(int argc, char *argv[]){
 
 static int mystrtok(const char *str, char delim, char *tokenizedStr[], int arraySize){
     int i=0, j;
-    size_t len;
     char tok[strlen(str)];
 
     if(!*str || arraySize<=0){  //invalid input
@@ -121,13 +120,12 @@ static int mystrtok(const char *str, char delim, char *tokenizedStr[], int array
         while(*str==delim) //discard delim characters
             str++; 
 
-        len=0;
         j=0;
-        while(str[len]!=delim && str[len]!='\0'){ //find length of substring
-            if(str[len]=='\\' && str[len+1]==delim){  //detect delim in name and skip
-                len++;
+        while(*str!=delim && *str!='\0'){ //find length of substring
+            if(*str=='\\' && *(str+1)==delim){  //escape delim in name
+                str++;
             }
-            tok[j++] = str[len++];
+            tok[j++] = *str++;
         }
         tok[j] = '\0';
 
@@ -141,7 +139,6 @@ static int mystrtok(const char *str, char delim, char *tokenizedStr[], int array
         }
         strcpy(tokenizedStr[i], tok);
         
-        str+=len;
         i++;
     }
 }
