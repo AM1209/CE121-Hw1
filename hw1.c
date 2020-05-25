@@ -19,11 +19,13 @@
 #define MAX_ARGS 3
 #define MAX_STR 255
 
+#ifndef CHECK
 #define CHECK(sinartisi)\
     if((sinartisi) == -1){\
         fprintf(stderr,"errno: %d at line: %d\n", errno, __LINE__);\
         return -1;\
-    }\
+    }
+#endif
 
 static int mystrtok(const char *str, char delim, char *tokenizedStr[], int arraySize);
 
@@ -96,10 +98,11 @@ int main(int argc, char *argv[]){
 /****************************************************************************************************************************/
 
 static int mystrtok(const char *str, char delim, char *tokenizedStr[], int arraySize){
-    int i=0;
+    int i=0, j;
     size_t len;
+    char tok[strlen(str)];
 
-    if(!*str || arraySize<=0){
+    if(!*str || arraySize<=0){  //invalid input
         return 0;
     }
 
@@ -118,11 +121,17 @@ static int mystrtok(const char *str, char delim, char *tokenizedStr[], int array
         while(*str==delim) //discard delim characters
             str++; 
 
-        len=0;  
-        while(str[len]!=delim && str[len]!='\0') //find length of substring
-            len++;
+        len=0;
+        j=0;
+        while(str[len]!=delim && str[len]!='\0'){ //find length of substring
+            if(str[len]=='\\' && str[len+1]==delim){  //detect delim in name and skip
+                len++;
+            }
+            tok[j++] = str[len++];
+        }
+        tok[j] = '\0';
 
-        tokenizedStr[i] = (char *)malloc(len+1);  //malloc memory for new string
+        tokenizedStr[i] = (char *)malloc(j+1);  //malloc memory for new string
         if(!tokenizedStr[i]){
             for (int j=0;j< i; j++){
                 free(tokenizedStr[j]);
@@ -130,9 +139,8 @@ static int mystrtok(const char *str, char delim, char *tokenizedStr[], int array
             fprintf(stderr,"Malloc failed\n");
             return -1;
         }
-        strncpy(tokenizedStr[i], str, len);
-        tokenizedStr[i][len]='\0';
-
+        strcpy(tokenizedStr[i], tok);
+        
         str+=len;
         i++;
     }
