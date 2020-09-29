@@ -95,8 +95,15 @@ int main(int argc, char *argv[]){
     return 1;
 }
 
-/****************************************************************************************************************************/
-
+/**
+ * @brief Validates input.
+ * 
+ * @param str 
+ * @param delim 
+ * @param tokenizedStr 
+ * @param arraySize 
+ * @return int 
+ */
 static int mystrtok(const char *str, char delim, char *tokenizedStr[], int arraySize){
     int i=0, j;
     char tok[strlen(str)];

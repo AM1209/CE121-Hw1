@@ -2,8 +2,15 @@
 
 static int search(int fd, const char *fileToFind);
 
-/*********************************  Import File to Database  **************************************************************/
-
+/**
+ * @brief Imports file at the end of the Database
+ * Writes the lengths of the file's name (int), 
+ * the name of the file, the size of the file and
+ * finally the contents. 
+ * @param fd 
+ * @param importFile 
+ * @return int 
+ */
 int import(int fd, const char *importFile){
     int fdInputFile; 
     const char *importFileName;
@@ -51,8 +58,13 @@ int import(int fd, const char *importFile){
     return 0;
 }
 
-/****************************  Find file in Database  ****************************************************/
-
+/**
+ * @brief Parses database and finds all files with relevant filenames.
+ * 
+ * @param fd 
+ * @param fileToFind 
+ * @return int 
+ */
 int find(int fd, const char *fileToFind){
     unsigned char buf[MAX_READ];
     ssize_t readBytes=0, fileSize=0;
@@ -81,8 +93,15 @@ int find(int fd, const char *fileToFind){
     return found;
 }
 
-/***************************************  Export file from Database  ********************************************************/
-
+/**
+ * @brief Creates a new file with the filename of dest and 
+ * the contents of src if src exists in the database.
+ * 
+ * @param fd 
+ * @param src 
+ * @param dest 
+ * @return int 
+ */
 int export(int fd, const char *src, const char *dest){
 
     int fd_dst, offset, readBytes, fileSize;
@@ -109,8 +128,14 @@ int export(int fd, const char *src, const char *dest){
     return 0;
 }
 
-/***********************************  Delete file from Database  **************************************************/
-
+/**
+ * @brief Looks for and, if it is found, deletes a file from the database 
+ * 
+ * @param fd 
+ * @param name 
+ * @param file 
+ * @return int 
+ */
 int delete(int fd, const char *name, const char *file){
 
     int offset, fd_2, readBytes, fileSize;
@@ -152,8 +177,14 @@ int delete(int fd, const char *name, const char *file){
     return 0;
 }
 
-/****************************************  Search for file in Database  **********************************************/
-
+/**
+ * @brief Looks for a file in the database and returns -1 if it doesn't exist
+ * or its place in the database file.
+ * 
+ * @param fd 
+ * @param fileToFind 
+ * @return int 
+ */
 static int search(int fd, const char *fileToFind){
     unsigned char buf[MAX_READ];
     ssize_t readBytes=0, fileSize=0, offset=0;
